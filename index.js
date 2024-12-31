@@ -1,57 +1,34 @@
 const { IRacingSDK } = require("irsdk-node");
 const { TELEMETRY } = require("./telemetry.constants");
-// const { SerialPort } = require('serialport');
-const TIMEOUT = Math.floor((1 / 30) * 1000); // 60fps
-
+const { SerialPort } = require('serialport');
+const {communicateWithDevices} = require('./find-device')
+const TIMEOUT = Math.floor(100); // 60fps
+const irsdk = require('iracing-sdk-js')
 let sdk;
+let lastSendMessage=null
 async function init () {
-    // const portName = await findComPortsByName('Arduino')[0]
-    // const port = new SerialPort({ path: 'COM3', baudRate: 9600 });
+    const portName = await communicateWithDevices()
+    const port = new SerialPort({ path: portName, baudRate: 2000000 });
+    port.on('message', (data)=>{
+        console.log(data)
+    })
     function sendABSValue(value) {
-        const buffer = Buffer.from([value]);
-        // port.write(buffer);
+        const message = value ? 'A\n' : 'B\n'
+        if(lastSendMessage !== message) {
+            console.log(message)
+            port.write(message);
+            lastSendMessage = message;
+        }
     }
     
     if (await IRacingSDK.IsSimRunning()) {
-        sdk = new IRacingSDK();
-        if (await sdk.ready()) {
-            sdk.autoEnableTelemetry = true;
-            loop(sdk);
-        }
+        sdk = irsdk.init({telemetryUpdateInterval: 60})
+        sdk.on('Telemetry', function (evt) {
+            console.log(evt.values[TELEMETRY.BrakeABSactive])
+            sendABSValue(Boolean(evt.values[TELEMETRY.BrakeABSactive]))
+          })
     }
-    function loop() {
-        if (sdk.waitForData(TIMEOUT)) {
-            const session = sdk.getSessionData();
-            const telemetry = sdk.getTelemetry();
-            console.log(telemetry[TELEMETRY.BrakeABSactive])
-            sendABSValue(telemetry[TELEMETRY.BrakeABSactive])
-            loop(sdk);
-        } else {   
-            loop(sdk);
-        }
-    }
-    // port.on('error', function (err) {
-    //     console.error('Error:', err.message);
-    // });
-    
-    
-    
-    
-    // async function findComPortsByName(namePattern) {
-    //     const ports = await SerialPort.list();
-    //     return ports.filter(port => port.manufacturer && port.manufacturer.includes(namePattern));
-    // }
-    
-    // findComPortsByName('Arduino')
-    //     .then((ports) => {
-    //         console.log(`Найдено ${ports.length} портов:`);
-    //         return ports.forEach((port) => {
-    //             console.log(`${port.comName}: ${port.manufacturer}`);
-    //         });
-    //     })
-    //     .catch((err) => {
-    //         console.error('Ошибка при поиске портов:', err);
-    //     });
+   
 }
 
 init();

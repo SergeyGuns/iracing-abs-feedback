@@ -1,21 +1,50 @@
-const int outputPin = 6; // Пин, к которому подключен выход
-void setup() {
-  Serial.begin(9600); // Устанавливаем скорость передачи данных
-  pinMode(outputPin, OUTPUT); // Устанавливаем пин 6 как выход
+#include <SerialCommands.h>
+
+char serial_command_buffer_[32];
+int outputPin = 6; // Пин, к которому подключен выход
+SerialCommands serial_commands_(&Serial, serial_command_buffer_, sizeof(serial_command_buffer_), "\n", " ");
+
+void cmd_hello(SerialCommands* sender) {
+  digitalWrite(outputPin, HIGH); 
+  delay(100);
+  digitalWrite(outputPin, LOW); 
+  sender->GetSerial()->println("im pedal");
 }
 
-void loop() {
-  if (Serial.available()) {
-    String message = Serial.readStringUntil('\n'); // Читаем строку до символа новой строки
-    
-    if (message == "are u pedal?") {
-      Serial.println("im pedal"); // Ответ на полученное сообщение
-    }
-    if (message == "true") {       // Если строка равна "true"
-      digitalWrite(outputPin, HIGH);    // Включаем сигнал на пине 6
-    } else {
-      digitalWrite(outputPin, LOW);     // В противном случае выключаем сигнал
-    }
-  }
+void cmd_off_pin(SerialCommands* sender) {
+  digitalWrite(outputPin, LOW); 
+  sender->GetSerial()->println("off vibration");
 }
 
+void cmd_on_pin(SerialCommands* sender) {
+  digitalWrite(outputPin, HIGH); 
+  sender->GetSerial()->println("on vibration");
+}
+
+void cmd_unrecognized(SerialCommands* sender, const char* cmd)
+{
+	sender->GetSerial()->print("ERROR: Unrecognized command [");
+	sender->GetSerial()->print(cmd);
+	sender->GetSerial()->println("]");
+}
+
+SerialCommand cmd_on_abs("A", cmd_on_pin, true);
+SerialCommand cmd_off_abs("B", cmd_off_pin, true);
+SerialCommand cmd_echo_hello("C", cmd_hello, true);
+
+void setup() 
+{
+  pinMode(outputPin, OUTPUT);
+  digitalWrite(outputPin, HIGH); 
+  delay(500);
+  digitalWrite(outputPin, LOW); 
+	Serial.begin(2000000);
+	serial_commands_.AddCommand(&cmd_echo_hello);
+	serial_commands_.AddCommand(&cmd_on_abs);
+	serial_commands_.AddCommand(&cmd_off_abs);
+}
+
+void loop() 
+{
+	serial_commands_.ReadSerial();
+}

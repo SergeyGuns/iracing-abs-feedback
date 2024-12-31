@@ -9,6 +9,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "iracing-sdk-js": "^1.4.0",
     "irsdk-node": "^4.0.1",
     "serialport": "^12.0.0"
   }
